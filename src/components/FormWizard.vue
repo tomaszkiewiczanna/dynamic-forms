@@ -2,7 +2,8 @@
   <div>
     <div v-if="wizardProgress" v-show="asyncState !== 'pending'">
     <keep-alive>
-      <component  ref="currentStep" :is="currentStep" @update="processStep" :wizardData="form"></component>
+      <component  ref="currentStep" @updateAsyncState="updateAsyncState"
+      :is="currentStep" @update="processStep" :wizardData="form"></component>
     </keep-alive>
     
     <div class="progress-bar">
@@ -33,7 +34,7 @@
     </div>
 
 
-    <pre><code>{{form}}</code></pre>
+    <!--<pre><code>{{form}}</code></pre>-->
   </div>
 </template>
 
@@ -92,6 +93,9 @@ export default {
     }
   },
   methods: {
+    updateAsyncState (state) {
+      this.asyncState = state
+    },
     submitOrder () {
       this.asyncState = 'pending'
       postFormToDB(this.form).then(() => {
