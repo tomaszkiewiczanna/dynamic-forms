@@ -1,49 +1,67 @@
 <template>
   <div>
-    <FormPlanPicker v-if="currentStepNumber === 1"/>
-    <FormUserDetails v-if="currentStepNumber === 2"/>
-    <FormAddress v-if="currentStepNumber === 3"/>
-    <FormReviewOrder v-if="currentStepNumber === 4"/>
-
+    <div v-if="wizardProgress" v-show="asyncState !== 'pending'">
+    <keep-alive>
+      <component  ref="currentStep" :is="currentStep" @update="processStep" :wizardData="form"></component>
+    </keep-alive>
+    
     <div class="progress-bar">
       <div :style="`width: ${progress}%;`"></div>
     </div>
 
     <!-- Actions -->
     <div class="buttons">
-      <button
-        @click="goBack"
-        v-if="currentStepNumber > 1"
-        class="btn-outlined"
-      >Back
-      </button>
-      <button
-        @click="goNext"
-        class="btn"
-      >Next</button>
+      <button @click="goBack" v-if="currentStepNumber > 1" class="btn-outlined">Back</button>
+      <button @click="nextButtonAction" :disabled="!canGoNext" class="btn">{{isLastStep? 'Complete Order' : 'Next'}}</button>
     </div>
+    </div>
+     <div v-else>
+      <h1 class="title">Thank you!</h1>
+      <h2 class="subtitle">
+        We look forward to shipping you your first box!
+      </h2>
+
+      <p class="text-center">
+        <a href="https://vueschool.io" target="_blank" class="btn">Go somewhere cool!</a>
+      </p>
+    </div>
+     <div class="loading-wrapper" v-if="asyncState === 'pending'">
+      <div class="loader">
+        <img src="/spinner.svg" alt="">
+        <p>Please wait, we're hitting our servers!</p>
+      </div>
+    </div>
+
 
     <pre><code>{{form}}</code></pre>
   </div>
 </template>
 
 <script>
-import FormPlanPicker from './FormPlanPicker'
-import FormUserDetails from './FormUserDetails'
-import FormAddress from './FormAddress'
-import FormReviewOrder from './FormReviewOrder'
+import {postFormToDB} from '../api'
+import FormPlanPicker from "./FormPlanPicker";
+import FormUserDetails from "./FormUserDetails";
+import FormAddress from "./FormAddress";
+import FormReviewOrder from "./FormReviewOrder";
 export default {
-  name: 'FormWizard',
+  name: "FormWizard",
   components: {
     FormPlanPicker,
     FormUserDetails,
     FormAddress,
     FormReviewOrder
   },
-  data () {
+  data() {
     return {
       currentStepNumber: 1,
-      length: 4,
+      asyncState: null,
+      canGoNext: false,
+      steps: [
+        'FormPlanPicker',
+        'FormUserDetails',
+        'FormAddress',
+        'FormReviewOrder'
+      ],
       form: {
         plan: null,
         email: null,
@@ -54,20 +72,55 @@ export default {
         chocolate: false,
         otherTreat: false
       }
-    }
+    };
   },
   computed: {
-    progress () {
-      return this.currentStepNumber/this.length * 100
+    progress() {
+      return (this.currentStepNumber / this.length) * 100;
+    },
+    length () {
+      return this.steps.length
+    },
+    currentStep(){
+      return this.steps[this.currentStepNumber-1]
+    },
+    isLastStep(){
+      return this.currentStepNumber == this.length
+    },
+    wizardProgress(){
+      return this.currentStepNumber <= this.length
     }
   },
   methods: {
-    goBack () {
-      this.currentStepNumber--
+    submitOrder () {
+      this.asyncState = 'pending'
+      postFormToDB(this.form).then(() => {
+          console.log('form submitted', this.form)
+          this.asyncState = 'success'
+          this.currentStepNumber++
+        })
     },
-    goNext () {
-      this.currentStepNumber++
+    goBack() {
+      this.currentStepNumber--;
+      this.canGoNext = true
+    },
+    goNext() {
+      this.currentStepNumber++;
+      this.$nextTick(()=>{
+        this.$refs.currentStep.submit()
+      })
+    },
+    processStep(step) {
+      Object.assign(this.form, step.data);
+      this.canGoNext = step.valid
+    },
+    nextButtonAction(){
+      if(this.isLastStep){
+        this.submitOrder()
+      } else {
+        this.goNext()
+      }
     }
   }
-}
+};
 </script>
